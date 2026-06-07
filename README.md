@@ -2,7 +2,7 @@
 
 Aplicación web interactiva para explorar visualmente el **Análisis de Componentes Principales (ACP/PCA)** en datos bivariados. Desarrollada con [p5.js](https://p5js.org/) como recurso pedagógico para cursos de estadística, econometría y ciencia de datos.
 
-🔗 **Demo en vivo**: [github.com/fcontiggiani/pca_app](https://github.com/fcontiggiani/pca_app)
+🔗 **Demo en vivo**: [fcontiggiani.github.io/pca_app](https://fcontiggiani.github.io/pca_app)
 
 ---
 
