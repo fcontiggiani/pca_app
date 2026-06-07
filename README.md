@@ -41,7 +41,7 @@ Aparece al activar CP2. Muestra las **coordenadas de cada punto en el sistema CP
 | **Proyecciones** | Muestra/oculta las líneas de proyección ortogonal |
 | **Mantener ⊥** | Bloquea CP2 estrictamente perpendicular a CP1 al arrastrar |
 
-**Interacción con el mouse:** arrastrá sobre la zona superior del canvas para rotar el eje de la componente activa en tiempo real.
+**Interacción con el mouse:** arrastra sobre la zona superior del canvas para rotar el eje de la componente activa en tiempo real.
 
 ---
 
@@ -106,6 +106,16 @@ La **segunda componente principal** es ortogonal a la primera: $\mathbf{d}_2 \pe
 - Talleres de ciencia de datos y machine learning
 - Material de apoyo para explicar la geometría de la reducción de dimensionalidad
 - Demostraciones interactivas en presentaciones académicas
+
+---
+
+## Reconocimientos
+
+Adaptado de la visualización original de **kynd**:
+- Demo interactivo: [codepen.io/kynd/pen/dPOypvw](https://codepen.io/kynd/pen/dPOypvw)
+- Referencia conceptual: [Principal Component Analysis — kynd](https://kyndinfo.notion.site/Principal-Component-Analysis-351019e814cf809f816eec61c3712b2a)
+
+Las extensiones incluyen: segunda componente principal interactiva, gráfico de puntajes CP1–CP2, métricas de varianza explicada y correlación entre componentes, indicador de ortogonalidad, y etiquetas en español.
 
 ---
 

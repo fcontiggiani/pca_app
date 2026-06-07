@@ -23,7 +23,7 @@ button.primary{background:rgba(0,0,0,.1);font-weight:bold}
 
 <div id="wrapper">
   <div id="ui">
-    <div class="phase-lbl" id="phase-lbl">Ajustando CP1 — arrastrá para rotar</div>
+    <div class="phase-lbl" id="phase-lbl">Ajustando CP1 — arrastra para rotar</div>
     <div class="stat-panel">
       <div class="sr c1" id="row-pc1"><span class="swatch sw1"></span><span id="stat-pc1">CP1 — VAR: 0.00 &nbsp;0.0%</span></div>
       <div class="sr" id="row-pc2" style="display:none"><span class="swatch sw2"></span><span id="stat-pc2">CP2 — VAR: 0.00 &nbsp;0.0%</span></div>
@@ -98,7 +98,7 @@ const sketch = p => {
     } else {
       p.noStroke(); p.fill(0, 0, 0, 30);
       p.textSize(11); p.textAlign(p.CENTER, p.CENTER);
-      p.text('Fijá CP1 y mostrá CP2 para ver el espacio de componentes', p.width/2, MAIN_H + SCORE_H/2);
+      p.text('Fija CP1 y muestra CP2 para ver el espacio de componentes', p.width/2, MAIN_H + SCORE_H/2);
     }
 
     // ── Stats DOM ──────────────────────────────────────────────
@@ -303,7 +303,7 @@ function updateUI(){
   g('lbl-ortho').style.display = p2?'flex':'none';
   g('row-pc1').className = 'sr'+(p2?'':' c1');
   g('row-pc2').className = 'sr'+(p2?' c2':'');
-  g('phase-lbl').textContent = p2?'Ajustando CP2 — arrastrá para rotar':'Ajustando CP1 — arrastrá para rotar';
+  g('phase-lbl').textContent = p2?'Ajustando CP2 — arrastra para rotar':'Ajustando CP1 — arrastra para rotar';
   g('btn-phase').textContent = p2?'← EDITAR CP1':'FIJAR CP1 →';
   g('btn-opt').textContent   = p2?'OPTIMIZAR CP2':'OPTIMIZAR CP1';
 }
