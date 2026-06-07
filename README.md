@@ -55,31 +55,6 @@ Aparece al activar CP2. Muestra las **coordenadas de cada punto en el sistema CP
 
 ---
 
-## Instalación y despliegue
-
-### Opción A — GitHub Pages (recomendada)
-
-1. Crear un repositorio nuevo en GitHub (ej. `pca-interactivo`)
-2. Guardar el archivo `index.html` en la raíz del repositorio
-3. Ir a **Settings → Pages → Source: Deploy from a branch → main / (root)**
-4. La app estará disponible en `https://tu-usuario.github.io/pca-interactivo`
-
-### Opción B — Uso local
-
-Simplemente abrir `index.html` en cualquier navegador moderno. No requiere servidor ni dependencias adicionales (la única dependencia externa es p5.js, cargada desde CDN).
-
----
-
-## Estructura del archivo
-
-```
-pca-interactivo/
-├── index.html      ← app completa (HTML + CSS + JS, autocontenido)
-└── README.md       ← este archivo
-```
-
----
-
 ## Fundamentos matemáticos
 
 Dado un conjunto de $n$ puntos $\{(x_i, y_i)\}$ centrados en el origen, la **varianza proyectada** sobre un eje con dirección unitaria $\mathbf{d} = (\cos\theta, \sin\theta)$ es:
