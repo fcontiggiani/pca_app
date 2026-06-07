@@ -1,0 +1,310 @@
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:rgb(255,230,200);overflow:hidden;font-family:'Courier New',monospace}
+#wrapper{position:relative;width:100%;height:760px;overflow:hidden}
+#ui{position:absolute;top:14px;left:14px;z-index:10;display:flex;flex-direction:column;gap:9px;font-size:12px;color:#111;user-select:none;pointer-events:none}
+#ui>*{pointer-events:auto}
+.phase-lbl{font-size:10px;opacity:.5;text-transform:uppercase;letter-spacing:.08em}
+.stat-panel{display:flex;flex-direction:column;gap:4px}
+.sr{display:flex;align-items:center;gap:6px;padding:2px 6px 2px 4px;border-left:3px solid transparent}
+.sr.c1{border-color:#14143e}.sr.c2{border-color:#b03020}
+.swatch{width:12px;height:2px;display:inline-block;flex-shrink:0}
+.sw1{background:#14143e}.sw2{background:#b03020}
+#stat-total{font-size:11px;opacity:.5;padding-left:4px}
+#stat-acum{font-size:11px;font-weight:bold;padding-left:4px}
+#angle-row{font-size:11px;padding-left:4px}
+.controls{display:flex;gap:6px;flex-wrap:wrap}
+button{font-family:'Courier New',monospace;font-size:11px;background:none;color:#111;border:1px solid #111;padding:4px 8px;cursor:pointer}
+button:hover{background:rgba(0,0,0,.08)}
+button.primary{background:rgba(0,0,0,.1);font-weight:bold}
+.toggle-row{display:flex;gap:10px;font-size:11px;align-items:center}
+.toggle-row label{cursor:pointer;display:flex;align-items:center;gap:4px}
+</style>
+
+<div id="wrapper">
+  <div id="ui">
+    <div class="phase-lbl" id="phase-lbl">Ajustando CP1 — arrastrá para rotar</div>
+    <div class="stat-panel">
+      <div class="sr c1" id="row-pc1"><span class="swatch sw1"></span><span id="stat-pc1">CP1 — VAR: 0.00 &nbsp;0.0%</span></div>
+      <div class="sr" id="row-pc2" style="display:none"><span class="swatch sw2"></span><span id="stat-pc2">CP2 — VAR: 0.00 &nbsp;0.0%</span></div>
+      <div id="stat-total">VAR total: 0.00</div>
+      <div id="stat-acum" style="display:none">Acumulado: 0.0%</div>
+      <div id="angle-row" style="display:none">Ángulo CP1∧CP2: 90.0°</div>
+    </div>
+    <div class="controls">
+      <button onclick="randomizeAll()">ALEATORIZAR</button>
+      <button id="btn-opt" onclick="doOptimize()">OPTIMIZAR CP1</button>
+      <button id="btn-phase" onclick="advancePhase()" class="primary">FIJAR CP1 →</button>
+    </div>
+    <div class="toggle-row">
+      <label><input type="checkbox" id="chk-proj" checked onchange="window.showProj=this.checked"> Proyecciones</label>
+      <label id="lbl-ortho" style="display:none"><input type="checkbox" onchange="window.lockOrtho=this.checked"> Mantener ⊥</label>
+    </div>
+  </div>
+  <div id="cnv"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+<script>
+window.showProj = true;
+window.lockOrtho = false;
+window.appPhase = 1;
+
+const MAIN_H = 465;
+const SCORE_H = 295;
+const BG = [255, 230, 200];
+const C1 = [20, 20, 70];
+const C2 = [176, 48, 32];
+
+const sketch = p => {
+  let pts = [], N = 40;
+  let pc1A = 0, pc2A = Math.PI / 2;
+  let anim = {on:false, pc:1, s:0, e:0, t0:0, dur:900};
+
+  p.setup = () => {
+    let w = document.getElementById('wrapper').offsetWidth;
+    p.createCanvas(w, MAIN_H + SCORE_H).parent('cnv');
+    p.textFont('Courier New');
+    doRandomize();
+  };
+
+  p.draw = () => {
+    p.background(...BG);
+    tickAnim();
+
+    let tVar = totalVar();
+    let v1 = projVar(pc1A), v2 = projVar(pc2A);
+    let pct1 = tVar > 0 ? v1/tVar*100 : 0;
+    let pct2 = tVar > 0 ? v2/tVar*100 : 0;
+    let ph = window.appPhase;
+
+    // ── Zone 1: espacio original ───────────────────────────────
+    p.push();
+    p.translate(p.width/2, MAIN_H/2);
+    let len = Math.min(p.width, MAIN_H) * 0.42;
+    if (ph === 2) drawPC(pc2A, len, C2, 2);
+    drawPC(pc1A, len, C1, 1);
+    p.noStroke(); p.fill(25);
+    pts.forEach(pt => p.circle(pt.x, pt.y, 6));
+    p.pop();
+
+    // ── Divisor ────────────────────────────────────────────────
+    p.stroke(0, 0, 0, 25); p.strokeWeight(1);
+    p.line(0, MAIN_H, p.width, MAIN_H);
+
+    // ── Zone 2: espacio CP1–CP2 ────────────────────────────────
+    if (ph === 2) {
+      drawScoresPlot(pct1, pct2);
+    } else {
+      p.noStroke(); p.fill(0, 0, 0, 30);
+      p.textSize(11); p.textAlign(p.CENTER, p.CENTER);
+      p.text('Fijá CP1 y mostrá CP2 para ver el espacio de componentes', p.width/2, MAIN_H + SCORE_H/2);
+    }
+
+    // ── Stats DOM ──────────────────────────────────────────────
+    g('stat-pc1').textContent = `CP1 — VAR: ${v1.toFixed(2)}   ${pct1.toFixed(1)}%`;
+    g('stat-total').textContent = `VAR total: ${tVar.toFixed(2)}`;
+    if (ph === 2) {
+      g('stat-pc2').textContent = `CP2 — VAR: ${v2.toFixed(2)}   ${pct2.toFixed(1)}%`;
+      g('stat-acum').textContent = `Acumulado: ${Math.min(pct1+pct2,100).toFixed(1)}%`;
+      let diff = Math.abs(pc2A - pc1A) % Math.PI;
+      let deg  = Math.min(diff, Math.PI - diff) * 180 / Math.PI;
+      let ok   = Math.abs(deg - 90) < 1.5;
+      let el   = g('angle-row');
+      el.textContent = `Ángulo CP1∧CP2: ${deg.toFixed(1)}°${ok ? '  ✓ ortogonal' : ''}`;
+      el.style.color = ok ? '#1a6e3a' : '#9b2020';
+    }
+  };
+
+  function drawPC(angle, len, col, num) {
+    let dx = Math.cos(angle), dy = Math.sin(angle);
+    if (window.showProj) {
+      p.stroke(col[0], col[1], col[2], 45); p.strokeWeight(1);
+      pts.forEach(pt => { let d=pt.x*dx+pt.y*dy; p.line(pt.x,pt.y,d*dx,d*dy); });
+    }
+    p.stroke(...col);
+    p.strokeWeight(num === window.appPhase ? 2 : 1.2);
+    p.line(-dx*len, -dy*len, dx*len, dy*len);
+    p.stroke(...col); p.strokeWeight(1); p.fill(...BG);
+    pts.forEach(pt => { let d=pt.x*dx+pt.y*dy; p.circle(d*dx,d*dy,5); });
+    p.noStroke(); p.fill(...col);
+    p.textSize(11); p.textAlign(p.CENTER, p.CENTER);
+    p.text(`CP${num}`, dx*len*.88 + dy*14, dy*len*.88 - dx*14);
+  }
+
+  function drawScoresPlot(pct1, pct2) {
+    let mx = 52, my = 28;
+    let pw = p.width - mx*2;
+    let ph = SCORE_H - my*2 - 10;
+    let cx = p.width/2, cy = MAIN_H + my + ph/2 + 10;
+
+    let dx1=Math.cos(pc1A), dy1=Math.sin(pc1A);
+    let dx2=Math.cos(pc2A), dy2=Math.sin(pc2A);
+    let s1 = pts.map(pt => pt.x*dx1 + pt.y*dy1);
+    let s2 = pts.map(pt => pt.x*dx2 + pt.y*dy2);
+    let max1 = Math.max(...s1.map(Math.abs)) || 1;
+    let max2 = Math.max(...s2.map(Math.abs)) || 1;
+    let sx = (pw/2 - 8) / max1;
+    let sy = (ph/2 - 8) / max2;
+
+    // Pearson r entre puntajes
+    let n = pts.length;
+    let m1 = s1.reduce((a,b)=>a+b,0)/n;
+    let m2 = s2.reduce((a,b)=>a+b,0)/n;
+    let cov = s1.reduce((a,v,i)=>a+(v-m1)*(s2[i]-m2),0)/n;
+    let sd1 = Math.sqrt(s1.reduce((a,v)=>a+(v-m1)**2,0)/n);
+    let sd2 = Math.sqrt(s2.reduce((a,v)=>a+(v-m2)**2,0)/n);
+    let r = (sd1>0&&sd2>0) ? cov/(sd1*sd2) : 0;
+
+    p.push();
+    p.translate(cx, cy);
+
+    // Título panel
+    p.noStroke(); p.fill(0,0,0,55);
+    p.textSize(10); p.textAlign(p.CENTER, p.BOTTOM);
+    p.text('ESPACIO DE COMPONENTES PRINCIPALES (puntajes)', 0, -ph/2 - 6);
+
+    // Fondo panel
+    p.fill(252, 243, 232); p.noStroke();
+    p.rect(-pw/2, -ph/2, pw, ph, 3);
+
+    // Grid
+    p.stroke(210); p.strokeWeight(0.5);
+    [-0.75,-0.5,-0.25,0.25,0.5,0.75].forEach(f => {
+      p.line(-pw/2+2, -f*(ph/2-8), pw/2-2, -f*(ph/2-8));
+      p.line(f*(pw/2-8), -ph/2+2, f*(pw/2-8), ph/2-2);
+    });
+
+    // Ejes cero
+    p.stroke(0,0,0,70); p.strokeWeight(1);
+    p.line(-pw/2+2,0,pw/2-2,0);
+    p.line(0,-ph/2+2,0,ph/2-2);
+
+    // Puntos con líneas sutiles a los ejes
+    pts.forEach((pt,i) => {
+      let px = s1[i]*sx, py = -s2[i]*sy;
+      p.stroke(C1[0],C1[1],C1[2],15); p.strokeWeight(0.6);
+      p.line(px, 0, px, py);
+      p.stroke(C2[0],C2[1],C2[2],15);
+      p.line(0, py, px, py);
+      p.fill(25); p.noStroke();
+      p.circle(px, py, 6);
+    });
+
+    // Etiquetas de ejes
+    p.noStroke();
+    p.fill(...C1); p.textSize(11); p.textAlign(p.RIGHT, p.CENTER);
+    p.text(`CP1  (${pct1.toFixed(1)}%)`, pw/2-3, 11);
+    p.fill(...C2); p.textAlign(p.LEFT, p.CENTER);
+    p.text(`CP2  (${pct2.toFixed(1)}%)`, 5, -ph/2+10);
+
+    // Correlación r
+    let okR = Math.abs(r) < 0.05;
+    p.fill(okR ? 26 : 155, okR ? 110 : 30, okR ? 58 : 24);
+    p.textSize(10); p.textAlign(p.RIGHT, p.BOTTOM);
+    p.text(`r = ${r.toFixed(2)}${okR ? '  ≈ 0 ✓' : ''}`, pw/2-4, ph/2-4);
+
+    // Ticks numéricos eje X
+    p.fill(0,0,0,45); p.textSize(9);
+    [-1,-0.5,0.5,1].forEach(f => {
+      p.textAlign(p.CENTER, p.TOP);
+      p.text((f*max1).toFixed(0), f*(pw/2-8), 4);
+    });
+    [-1,-0.5,0.5,1].forEach(f => {
+      p.textAlign(p.RIGHT, p.CENTER);
+      p.text((f*max2).toFixed(0), -5, -f*(ph/2-8));
+    });
+
+    p.pop();
+  }
+
+  function projVar(a) {
+    let dx=Math.cos(a),dy=Math.sin(a),s=0;
+    pts.forEach(pt=>{let d=pt.x*dx+pt.y*dy;s+=d*d;});
+    return s/pts.length;
+  }
+
+  function totalVar() {
+    let s=0; pts.forEach(pt=>s+=pt.x*pt.x+pt.y*pt.y); return s/pts.length;
+  }
+
+  function tickAnim() {
+    if (!anim.on) return;
+    let t=Math.min((p.millis()-anim.t0)/anim.dur,1);
+    let et=t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+    let a=anim.s+(anim.e-anim.s)*et;
+    if(anim.pc===1) pc1A=a; else pc2A=a;
+    if(t>=1) anim.on=false;
+  }
+
+  p.mouseDragged = () => {
+    if (anim.on || p.mouseY > MAIN_H || p.mouseX<0 || p.mouseX>p.width) return;
+    let a = Math.atan2(p.mouseY - MAIN_H/2, p.mouseX - p.width/2);
+    if (window.appPhase===1) pc1A=a;
+    else pc2A = window.lockOrtho ? pc1A+Math.PI/2 : a;
+  };
+
+  p.touchMoved = () => {
+    if (anim.on || !p.touches.length) return false;
+    let tx=p.touches[0].x, ty=p.touches[0].y;
+    if (tx<0||tx>p.width||ty<0||ty>MAIN_H) return false;
+    let a=Math.atan2(ty-MAIN_H/2, tx-p.width/2);
+    if (window.appPhase===1) pc1A=a;
+    else pc2A = window.lockOrtho ? pc1A+Math.PI/2 : a;
+    return false;
+  };
+
+  function doRandomize() {
+    pts=[];
+    let ba=p.random(p.TWO_PI),sx=p.random(90,210),sy=p.random(20,65);
+    for(let i=0;i<N;i++){
+      let u=p.randomGaussian(0,sx/2),v=p.randomGaussian(0,sy/2);
+      pts.push(p.createVector(u*Math.cos(ba)-v*Math.sin(ba),u*Math.sin(ba)+v*Math.cos(ba)));
+    }
+    window.appPhase=1; pc1A=0; pc2A=Math.PI/2; anim.on=false;
+  }
+
+  function findBest() {
+    let best=0,maxV=-1;
+    for(let a=0;a<Math.PI;a+=0.01){let v=projVar(a);if(v>maxV){maxV=v;best=a;}}
+    return best;
+  }
+
+  function animateTo(pc,startA,targetA) {
+    let base=((startA%Math.PI)+Math.PI)%Math.PI;
+    let tgt=((targetA%Math.PI)+Math.PI)%Math.PI;
+    let diff=tgt-base;
+    if(diff> Math.PI/2) diff-=Math.PI;
+    if(diff<-Math.PI/2) diff+=Math.PI;
+    anim={on:true,pc,s:startA,e:startA+diff,t0:p.millis(),dur:900};
+  }
+
+  window.randomizeAll  = () => { doRandomize(); updateUI(); };
+  window.doOptimize    = () => {
+    if(window.appPhase===1) animateTo(1,pc1A,findBest());
+    else animateTo(2,pc2A,pc1A+Math.PI/2);
+  };
+  window.advancePhase  = () => {
+    window.appPhase = window.appPhase===1 ? 2 : 1;
+    if(window.appPhase===2) pc2A = pc1A+Math.PI/2;
+    updateUI();
+  };
+};
+
+new p5(sketch, document.getElementById('cnv'));
+
+function g(id){return document.getElementById(id);}
+
+function updateUI(){
+  let p2=window.appPhase===2;
+  g('row-pc2').style.display   = p2?'flex':'none';
+  g('stat-acum').style.display = p2?'block':'none';
+  g('angle-row').style.display = p2?'block':'none';
+  g('lbl-ortho').style.display = p2?'flex':'none';
+  g('row-pc1').className = 'sr'+(p2?'':' c1');
+  g('row-pc2').className = 'sr'+(p2?' c2':'');
+  g('phase-lbl').textContent = p2?'Ajustando CP2 — arrastrá para rotar':'Ajustando CP1 — arrastrá para rotar';
+  g('btn-phase').textContent = p2?'← EDITAR CP1':'FIJAR CP1 →';
+  g('btn-opt').textContent   = p2?'OPTIMIZAR CP2':'OPTIMIZAR CP1';
+}
+</script>
